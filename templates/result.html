@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Result</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+{% macro render_tree(node) %}
+<li>
+    <span class="tree-node">{{ node.label }}</span>
+    {% if node.children %}
+    <ul>
+        {% for child in node.children %}
+            {{ render_tree(child) }}
+        {% endfor %}
+    </ul>
+    {% endif %}
+</li>
+{% endmacro %}
+
+<div class="container">
+    <div class="eyebrow">Analysis Output</div>
+    <div class="page-intro">
+        <h1>CFG Result</h1>
+        <p>Your converted grammar, intermediate steps, and CYK result are grouped below for easy review.</p>
+    </div>
+
+    <section class="panel">
+        <h2>Final CNF</h2>
+        <pre>{{ cnf }}</pre>
+    </section>
+
+    <section class="panel">
+        <h2>Accepted String Examples</h2>
+        <p class="section-copy">
+            These are sample strings accepted by the grammar after CNF conversion. The list is checked over the grammar's alphabet for strings up to length {{ language_examples.max_length }}.
+        </p>
+        <div class="language-summary">
+            <div class="language-detail">
+                Alphabet:
+                {% if language_examples.alphabet %}
+                    { {{ language_examples.alphabet|join(", ") }} }
+                {% else %}
+                    { }
+                {% endif %}
+            </div>
+            <div class="language-detail">
+                Start symbol: {{ start_symbol }}
+            </div>
+            <div class="language-detail">
+                {% if language_examples.examples %}
+                    Accepted examples: {{ language_examples.examples|join(", ") }}
+                {% else %}
+                    No accepted strings were found up to length {{ language_examples.max_length }}.
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>{{ visualization.title }}</h2>
+        {% if visualization.kind == "state_diagram" %}
+        <p class="section-copy">
+            {{ visualization.message }}
+        </p>
+        <div class="diagram-wrap">
+            {{ visualization.svg|safe }}
+        </div>
+        {% elif visualization.kind == "parse_tree" %}
+        <p class="section-copy">
+            {{ visualization.message }}
+        </p>
+        <div class="parse-tree-wrap">
+            <ul class="parse-tree">
+                {{ render_tree(visualization.tree) }}
+            </ul>
+        </div>
+        {% else %}
+        <div class="step-note">{{ visualization.message }}</div>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <h2>Solution Steps</h2>
+        {% if not steps %}
+        <div class="step-note">
+            No transformation steps are available for this result.
+        </div>
+        {% elif not show_steps %}
+        <div class="step-note">
+            Step-by-step explanation is currently hidden.
+        </div>
+        <button type="button" class="secondary-button inline-action" id="showStepsButton">Show Steps Here</button>
+        {% else %}
+        <p class="section-copy">Open each step to see the transformation in sequence.</p>
+        {% endif %}
+
+        <div
+            id="stepsViewer"
+            class="{% if not show_steps or not steps %}steps-hidden{% endif %}"
+            data-total-steps="{{ steps|length }}"
+        >
+            {% if steps %}
+            <p class="section-copy">Open each step to see the transformation in sequence.</p>
+
+            <div class="step-nav">
+                {% for step in steps %}
+                <button type="button" class="step-tab" data-step-index="{{ loop.index0 }}">Step {{ loop.index }}</button>
+                {% endfor %}
+            </div>
+
+            <div class="step-progress" id="stepProgress">Step 1 of {{ steps|length }}</div>
+
+            {% for step in steps %}
+            <div class="step-box" id="step-{{ loop.index0 }}" style="display:none;">
+                <div class="step-heading-row">
+                    <h3>{{ step.title }}</h3>
+                    <span class="step-badge">Step {{ loop.index }}</span>
+                </div>
+                <p class="step-summary">{{ step.summary }}</p>
+                <pre class="step-grammar">{{ step.grammar }}</pre>
+
+                <div class="step-detail-title">Detailed changes</div>
+                {% if step.content %}
+                    {% for item in step.content %}
+                        {% if item.type == "add" %}
+                            <div class="step-add">+ {{ item.text }}</div>
+                        {% elif item.type == "remove" %}
+                            <div class="step-remove">- {{ item.text }}</div>
+                        {% else %}
+                            <div class="step-note">{{ item.text }}</div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="step-note">No changes were needed in this step.</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <div class="step-buttons">
+                <button type="button" class="secondary-button" id="prevStepButton" onclick="prevStep()">&larr; Previous</button>
+                <button type="button" class="secondary-button" id="nextStepButton" onclick="nextStep()">Next &rarr;</button>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    {% if string %}
+    <section class="panel">
+        <h2>Input String</h2>
+        <p class="inline-value">{{ string }}</p>
+    </section>
+    {% endif %}
+
+    {% if cyk_table %}
+    <section class="panel">
+        <h2>CYK Table</h2>
+        <div class="table-wrap">
+            <table>
+                {% for row in cyk_table %}
+                <tr>
+                    {% for cell in row %}
+                        {% if start_symbol in cell %}
+                    <td class="cell-highlight">{{ cell }}</td>
+                        {% else %}
+                    <td>{{ cell }}</td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if mode != "cnf" %}
+    <section class="panel">
+        <h2>Result</h2>
+        {% if accepted %}
+            <div class="status-card accepted">Accepted</div>
+        {% else %}
+            <div class="status-card rejected">Rejected</div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <form action="/" method="get">
+        <input type="hidden" name="grammar" value="{{ grammar }}">
+        <input type="hidden" name="string" value="{{ string }}">
+        <input type="hidden" name="mode" value="{{ mode }}">
+        <input type="hidden" name="show_steps" value="{{ 1 if show_steps else 0 }}">
+        <button type="submit" class="secondary-button">&larr; Back</button>
+    </form>
+
+</div>
+
+<script>
+let currentStep = 0;
+const stepsViewer = document.getElementById("stepsViewer");
+const totalSteps = Number(stepsViewer?.dataset.totalSteps || 0);
+
+window.onload = function() {
+    const stepTabs = document.querySelectorAll("[data-step-index]");
+    const showStepsButton = document.getElementById("showStepsButton");
+
+    stepTabs.forEach((button) => {
+        button.addEventListener("click", function() {
+            showStep(Number(button.dataset.stepIndex));
+        });
+    });
+
+    if (showStepsButton && stepsViewer) {
+        showStepsButton.addEventListener("click", function() {
+            stepsViewer.classList.remove("steps-hidden");
+            showStepsButton.style.display = "none";
+            showStep(currentStep);
+        });
+    }
+
+    if (totalSteps > 0 && !stepsViewer.classList.contains("steps-hidden")) {
+        showStep(0);
+    }
+};
+
+function showStep(i) {
+    if (totalSteps === 0 || i < 0 || i >= totalSteps) {
+        return;
+    }
+
+    for (let j = 0; j < totalSteps; j++) {
+        const el = document.getElementById("step-" + j);
+        const tab = document.querySelector(`[data-step-index="${j}"]`);
+        if (el) {
+            el.style.display = "none";
+        }
+        if (tab) {
+            tab.classList.remove("active");
+        }
+    }
+
+    const current = document.getElementById("step-" + i);
+    const currentTab = document.querySelector(`[data-step-index="${i}"]`);
+    const progress = document.getElementById("stepProgress");
+    const prevButton = document.getElementById("prevStepButton");
+    const nextButton = document.getElementById("nextStepButton");
+
+    if (current) {
+        current.style.display = "block";
+    }
+    if (currentTab) {
+        currentTab.classList.add("active");
+    }
+    if (progress) {
+        progress.textContent = `Step ${i + 1} of ${totalSteps}`;
+    }
+    if (prevButton) {
+        prevButton.disabled = i === 0;
+    }
+    if (nextButton) {
+        nextButton.disabled = i === totalSteps - 1;
+    }
+
+    currentStep = i;
+}
+
+function nextStep() {
+    if (currentStep < totalSteps - 1) {
+        showStep(currentStep + 1);
+    }
+}
+
+function prevStep() {
+    if (currentStep > 0) {
+        showStep(currentStep - 1);
+    }
+}
+</script>
+
+</body>
+</html>

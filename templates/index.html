@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CFG Debugger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <div class="eyebrow">Theory of Computation Toolkit</div>
+    <div class="page-intro">
+        <h1>CFG Debugger</h1>
+        <p>Convert context-free grammars, inspect the transformation steps, and test strings with CYK in one calm workspace.</p>
+    </div>
+
+    <form action="/process" method="post" class="panel">
+        <label class="field-label" for="grammarInput">Grammar</label>
+        <textarea id="grammarInput" name="grammar" placeholder="Example:
+S -> AB | BC
+A -> BA | a
+B -> CC | b
+C -> AB | a">{{ grammar }}</textarea>
+
+        <label class="field-label" for="modeSelect">Mode</label>
+        <select id="modeSelect" name="mode">
+            <option value="" {% if not mode %}selected{% endif %} disabled>Select a mode</option>
+            <option value="full" {% if mode == "full" %}selected{% endif %}>Full Simulation</option>
+            <option value="cnf" {% if mode == "cnf" %}selected{% endif %}>Only CNF</option>
+            <option value="cyk" {% if mode == "cyk" %}selected{% endif %}>Only CYK</option>
+        </select>
+
+        <div id="stringField" class="input-group hidden">
+            <label class="field-label" for="stringInput">Input string</label>
+            <input type="text" id="stringInput" name="string" placeholder="Enter string (e.g. ab)" value="{{ string }}">
+        </div>
+
+        <label class="checkbox-row">
+            <input type="checkbox" name="show_steps" {% if show_steps %}checked{% endif %}> Show Full Steps
+        </label>
+
+        <button type="submit" class="primary-button">Run Analysis</button>
+    </form>
+</div>
+
+<script>
+const modeSelect = document.getElementById('modeSelect');
+const stringField = document.getElementById('stringField');
+const stringInput = document.getElementById('stringInput');
+
+function toggleInput() {
+    if (modeSelect.value === "full" || modeSelect.value === "cyk") {
+        stringField.classList.remove("hidden");
+    } else {
+        stringField.classList.add("hidden");
+    }
+}
+
+modeSelect.addEventListener('change', toggleInput);
+window.onload = toggleInput;
+</script>
+
+</body>
+</html>
